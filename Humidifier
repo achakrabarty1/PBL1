@@ -1,2 +1,2 @@
 import numpy as np
-import matplotlib.pyplotlib.pyplot as saterbak
+import matplotlib.pyplot as saterbak
