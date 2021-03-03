@@ -18,10 +18,14 @@ def getNBloodO2():
     return n_toBlood_O2
 def getVBloodO2():
     return v_toBlood_O2
-def getNBloodC2():
+def getNBloodCO2():
     return n_toBlood_CO2
 def getVBloodCO2():
     return v_toBlood_CO2
+def getNormalArea():
+    return NORMAL_ALV_AREA
+def getArea():
+    return ALV_AREA
 
 # data constants
 SAT_PCT_O2 = 0.1967
@@ -31,7 +35,8 @@ ALV_PCT_O2 = 0.136
 ALV_PCT_CO2 = 0.053
 ALV_PCT_H2O = 0.062
 
-ALV_AREA = 1.4 * (10^6)  #cm^2
+NORMAL_ALV_AREA = 1.4 * (10^6)  #cm^2
+ALV_AREA = 1.4 * (10^6)  #cm^2          MODIFY THIS ONE FOR DATA!
 PO2_BLOOD = 104 #mm hg
 PO2_ALV = 40 #mm hg
 PO2_GRADIENT = getGradient(PO2_BLOOD, PO2_ALV)

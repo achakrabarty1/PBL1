@@ -10,7 +10,7 @@ m_H2O_in = 2100 #mL/day
 mw_H2O = 18.015 #g/mol
 
 # calculations of intake
-n_O2_in = n_toBlood_O2 #mol/min
+n_O2_in = alv.getO2() #mol/min
 n_HbO_in = n_O2_in / 4
 n_Hb_in = cap.getHb()
 n_Hbf_in = n_Hb_in - n_HbO_in
