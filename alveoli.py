@@ -142,29 +142,32 @@ a=np.arange(a0,aEnd, da) #creates an array with area values from healthy to dise
 print(a)                        
 
 n=int((aEnd-a0)/da)  #the number of steps it takes to get from healthy to diseased
-k = np.zeros(n)
-vtbO=np.zeros(n)
-ntbO=np.zeros(n)
-vtbC=np.zeros(n)
-ntbC=np.zeros(n)
-nfbC=np.zeros(n)
+print(n)
+l = n+1
+k = np.zeros(l)
+vtbO=np.zeros(l)
+ntbO=np.zeros(l)
+vtbC=np.zeros(l)
+ntbC=np.zeros(l)
+nfbC=np.zeros(l)
 k[0] = ki
 vtbO[0]=v_toBlood_O2
 ntbO[0]=n_toBlood_O2
 vtbC[0]=v_toBlood_CO2
 ntbC[0]=n_toBlood_CO2
 #nfbC[0]=met.get_CO2_met()
-    
-vOac= np.zeros(n)
-nOac = np.zeros(n)
-nOcm= np.zeros(n)  #mol/min
-nOmc = np.zeros(n)
-nOc = np.zeros(n)
-nCac = np.zeros(n)
-nCmc = np.zeros(n)
-nCac = np.zeros(n)
-nCac = np.zeros(n)
-nCca = np.zeros(n)
+
+vOac= np.zeros(l)
+nOac = np.zeros(l)
+nOcm= np.zeros(l)  #mol/min
+nOmc = np.zeros(l)
+nOc = np.zeros(l)
+nCac = np.zeros(l)
+nCmc = np.zeros(l)
+nCac = np.zeros(l)
+nCac = np.zeros(l)
+nCca = np.zeros(l)
+'''
 vOac[0] = v_O2_alv_cap
 nOac[0] = n_O2_alv_cap
 nOcm[0] = n_O2_cap_met
@@ -173,32 +176,34 @@ nCac[0] = n_CO2_alv_cap
 nCmc[0] = n_CO2_met_cap
 nOc[0] = n_O2_con
 nCca[0] = n_CO2_alv_cap + n_CO2_met_cap
-nHE = np.zeros(n)
-nHcm = np.zeros(n)
-nHOcm = np.zeros(n)
-nHfcm = np.zeros(n)
+'''
 
+nHE = np.zeros(l)
+nHcm = np.zeros(l)
+nHOcm = np.zeros(l)
+nHfcm = np.zeros(l)
+'''
 nHE[0] = n_Hb_EPO
 nHcm[0] = n_Hb_cap_met
 nHOcm[0] = n_HbO_cap_met
 nHfcm[0] = n_Hbf_cap_met    
-    
+'''   
     
 for i in range(0,len(a)-1):
-    k[i+1] = NORMAL_ALV_AREA/a[i] 
-    vtbO[i+1]=calcToBlood(DIFF_COEFF_O2, a[i], getGradient(PO2_BLOOD, PO2_ALV))
-    ntbO[i+1]=volumetric_to_molar(vtbO[i+1])
-    vtbC[i+1]=calcToBlood(DIFF_COEFF_CO2, a[i], getGradient(PCO2_BLOOD, PCO2_ALV))
-    ntbC[i+1]=volumetric_to_molar(vtbC[i+1])
-    vOac[i+1] = vtbO[i+1]
-    nOac[i+1] = ntbO[i+1]
-    nOcm[i+1] = nOac[i+1]
-    nOc[i+1] = nOcm[i+1]
+    k[i] = NORMAL_ALV_AREA/a[i] 
+    vtbO[i] = calcToBlood(DIFF_COEFF_O2, -a[i], getGradient(PO2_BLOOD, PO2_ALV))
+    ntbO[i]=volumetric_to_molar(vtbO[i])
+    vtbC[i]=calcToBlood(DIFF_COEFF_CO2, a[i], getGradient(PCO2_BLOOD, PCO2_ALV))
+    ntbC[i]=volumetric_to_molar(vtbC[i])
+    vOac[i] = vtbO[i]
+    nOac[i] = ntbO[i]
+    nOcm[i] = nOac[i]
+    nOc[i] = nOcm[i]
     
-    nOmc[i+1] = nOac[i+1] - nOc[i+1]
-    nCac[i+1] = ntbC[i+1]
-    nCmc[i+1] = nOcm[i+1]
-    nCca[i+1] = ntbC[i+1] + nCmc[i+1]
+    nOmc[i] = nOac[i] - nOc[i]
+    nCac[i] = ntbC[i]
+    nCmc[i] = nOcm[i]
+    nCca[i] = ntbC[i] + nCmc[i]
     
     nHE[i+1] = k[i]*normal_n_Hb_EPO
     nHcm[i+1] = Dens_Hb*CO/MW_Hb+nHE[i]
@@ -243,20 +248,83 @@ n_HbO_met_cap = n_HbO_cap_met - n_HbO_con
 figure=plt.figure(num=1, clear=True)  #plotting for healthy v arteriosclerosis
 axis=figure.add_subplot(1,1,1)
 axis.grid(True)    
-axis.plot(a, vtbO, label='volumetric O2 flow out')
-axis.plot(a, ntbO, label='molar O2 flow out')   
+axis.plot(a, vtbO, label='volumetric O2 flow from Alv to Cap')
 axis.legend()        
-axis.set(xlabel='Area (cm^2)', ylabel='Oxygen flow (L/min, mol/min)') 
-figure.savefig('O2 v A')  
+axis.set(xlabel='Area (cm^2)', ylabel='Oxygen flow (L/min)') 
+figure.savefig('vtbo')  
         
 figure2=plt.figure(num=2, clear=True) #plotting for arteriosclerosis v treated
 axis2=figure2.add_subplot(1,1,1) 
 axis2.grid(True)     
-axis2.plot(a, vtbC, label='volumetric CO2 flow out')
-axis2.plot(a, ntbC, label='molar CO2 flow out')           
-axis2.legend()        
-axis2.set(xlabel='Area (cm^2)', ylabel='CO2 flow (L/min, mol/min)') 
-figure2.savefig('CO2 v A')  
+axis2.plot(a, ntbO, label='Molar O2 flow from Alv to Cap')       
+axis2.legend()
+axis2.set(xlabel='Area (cm^2)', ylabel='O2 flow (L/min)') 
+figure2.savefig('ntbo')  
+
+figure3=plt.figure(num=1, clear=True)  #plotting for healthy v arteriosclerosis
+axis3=figure3.add_subplot(1,1,1)
+axis3.grid(True)    
+axis3.plot(a, vtbC, label='volumetric CO2 flow from Alv to Cap')
+axis3.legend()        
+axis3.set(xlabel='Area (cm^2)', ylabel='CO2 flow (L/min)') 
+figure3.savefig('vtbc')
+
+figure4=plt.figure(num=1, clear=True)  #plotting for healthy v arteriosclerosis
+axis4=figure4.add_subplot(1,1,1)
+axis4.grid(True)    
+axis4.plot(a, ntbC, label='Molar CO2 flow from Alv to Cap')
+axis4.legend()        
+axis4.set(xlabel='Area (cm^2)', ylabel='CO2 flow (L/min)') 
+figure4.savefig('ntbc')
+
+figure5=plt.figure(num=1, clear=True)  #plotting for healthy v arteriosclerosis
+axis5=figure.add_subplot(1,1,1)
+axis5.grid(True)    
+axis5.plot(a, k, label='Hb coefficient')
+axis5.legend()        
+axis5.set(xlabel='Area (cm^2)', ylabel='Hb coeff') 
+figure5.savefig('k')
+
+figure6=plt.figure(num=1, clear=True)  #plotting for healthy v arteriosclerosis
+axis6=figure.add_subplot(1,1,1)
+axis6.grid(True)    
+axis6.plot(a, nOmc, label='Molar flow of Oxygen from Metabolic Reactor to Capillaries')
+axis6.legend()        
+axis6.set(xlabel='Area (cm^2)', ylabel='O2 (mol/min)') 
+figure6.savefig('nOmc')
+
+figure5=plt.figure(num=1, clear=True)  #plotting for healthy v arteriosclerosis
+axis5=figure5.add_subplot(1,1,1)
+axis5.grid(True)    
+axis5.plot(a, k, label='Hb coefficient')
+axis5.legend()        
+axis5.set(xlabel='Area (cm^2)', ylabel='Hb coeff') 
+figure5.savefig('k')
+
+figure5=plt.figure(num=1, clear=True)  #plotting for healthy v arteriosclerosis
+axis5=figure5.add_subplot(1,1,1)
+axis5.grid(True)    
+axis5.plot(a, k, label='Hb coefficient')
+axis5.legend()        
+axis5.set(xlabel='Area (cm^2)', ylabel='Hb coeff') 
+figure5.savefig('k')
+
+figure5=plt.figure(num=1, clear=True)  #plotting for healthy v arteriosclerosis
+axis5=figure5.add_subplot(1,1,1)
+axis5.grid(True)    
+axis5.plot(a, k, label='Hb coefficient')
+axis5.legend()        
+axis5.set(xlabel='Area (cm^2)', ylabel='Hb coeff') 
+figure5.savefig('k')
+
+figure5=plt.figure(num=1, clear=True)  #plotting for healthy v arteriosclerosis
+axis5=figure5.add_subplot(1,1,1)
+axis5.grid(True)    
+axis5.plot(a, k, label='Hb coefficient')
+axis5.legend()        
+axis5.set(xlabel='Area (cm^2)', ylabel='Hb coeff') 
+figure5.savefig('k')
+
 
         
         
@@ -270,5 +338,5 @@ figure2.savefig('CO2 v A')
 
 
 
-print("Splitter to Alveoli: %f \nSat Alveolar O2: %f \nSat Alveolar CO2: %f \nSat Alveolar H2O: %f \n" % (n_sat_alveoli, n_sat_alveoli*SAT_PCT_O2, n_sat_alveoli*SAT_PCT_CO2, n_sat_alveoli*SAT_PCT_H2O))
-print("Alveoli to Mixer: %f \nAlveolar O2: %f \nAlveolar CO2: %f \nAlveolar H2O: %f \n" % (n_alv, n_alv*ALV_PCT_O2, n_alv*ALV_PCT_CO2, n_alv*ALV_PCT_H2O))
+#print("Splitter to Alveoli: %f \nSat Alveolar O2: %f \nSat Alveolar CO2: %f \nSat Alveolar H2O: %f \n" % (n_sat_alveoli, n_sat_alveoli*SAT_PCT_O2, n_sat_alveoli*SAT_PCT_CO2, n_sat_alveoli*SAT_PCT_H2O))
+#print("Alveoli to Mixer: %f \nAlveolar O2: %f \nAlveolar CO2: %f \nAlveolar H2O: %f \n" % (n_alv, n_alv*ALV_PCT_O2, n_alv*ALV_PCT_CO2, n_alv*ALV_PCT_H2O))
