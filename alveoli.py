@@ -13,6 +13,7 @@ from functions import volumetric_to_molar
 #from functions import getToBlood
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
 
 
 
@@ -29,12 +30,15 @@ def getGradient(pBlood, pAlv):
     return (pBlood-pAlv)/DIST
 
 
-NORMAL_ALV_AREA = 8.5 * (10^5)  #"true" alveolar area in cm^2 from Gehr et. al, 1978
-ALV_AREA = 3.0 * (10^5)  #cm^2          MODIFY THIS ONE FOR DATA!
+NORMAL_ALV_AREA = 8.5 * (10^7)  #"true" alveolar area in cm^2 from Gehr et. al, 1978
+ALV_AREA = 3.0 * (10^7)  #cm^2          MODIFY THIS ONE FOR DATA!
 PO2_BLOOD = 104 #mm hg
 PO2_ALV = 40 #mm hg
 PO2_GRADIENT = getGradient(PO2_BLOOD, PO2_ALV)
 DIFF_COEFF_O2 = 2.4*(10^-5) #cm^2/s
+n_O2_blood_lit = .023      #L/min
+dens_O2 = 1.429 #g/L
+mw_O2 = 16   #g/mol
 
 PCO2_BLOOD = 40
 PCO2_ALV = 45
@@ -56,12 +60,12 @@ def getArea():
     return ALV_AREA
 
 #ALVEOLI
-v_toBlood_O2 = calcToBlood(DIFF_COEFF_O2, ALV_AREA, PO2_GRADIENT)
+#v_toBlood_O2 = calcToBlood(DIFF_COEFF_O2, ALV_AREA, PO2_GRADIENT)
+v_toBlood_O2 = n_O2_blood_lit*dens_O2/mw_O2
 n_toBlood_O2 = volumetric_to_molar(v_toBlood_O2)
 v_toBlood_CO2 = calcToBlood(DIFF_COEFF_CO2, ALV_AREA, PCO2_GRADIENT)
 n_toBlood_CO2 = volumetric_to_molar(v_toBlood_CO2)
 #n_sat_alveoli = sp.getSplitterAlv()
-#n_fromBlood_CO2 = met.get_CO2_met()
 #n_alv = n_sat_alveoli
 
 #CAPILLARIES
@@ -99,6 +103,9 @@ n_H2O_ingest = m_H2O_in * 24 * 60 / mw_H2O
 #determine limiting reagent
 LR = min(n_O2_cap_met/6, n_gluc_ingest)
 print(LR)
+print(n_Hb_ideal)
+print(normal_n_Hb_EPO)
+print(n_Hb_cap_met)
 
 # calculations of consumed products
 # because we found O2 to be the limiting reagent,
@@ -135,15 +142,15 @@ def getVBloodCO2():
 
     
 a0= NORMAL_ALV_AREA     #initial area
-aEnd=  3.0 * (10^5)    #area of a severely emphysematic lung in cm^2 from Thurlbeck, 1967
-da=-5     #small decrement in area
-a=np.arange(a0,aEnd, da) #creates an array with area values from healthy to diseased area
-                        #separated by da   
+aEnd=  3.0 * (10^7)    #area of a severely emphysematic lung in cm^2 from Thurlbeck, 1967
+da=5     #small decrement in area
+a=np.arange(aEnd,a0, da) #creates an array with area values from healthy to diseased area 
+                      #separated by da   
 print(a)                        
 
-n=int((aEnd-a0)/da)  #the number of steps it takes to get from healthy to diseased
+n=int((a0-aEnd)/da)  #the number of steps it takes to get from healthy to diseased
 print(n)
-l = n+1
+l = (n+1)
 k = np.zeros(l)
 vtbO=np.zeros(l)
 ntbO=np.zeros(l)
@@ -165,6 +172,7 @@ nOc = np.zeros(l)
 nCac = np.zeros(l)
 nCmc = np.zeros(l)
 nCca = np.zeros(l)
+nOca = np.zeros(l)
 '''
 vOac[0] = v_O2_alv_cap
 nOac[0] = n_O2_alv_cap
@@ -199,15 +207,14 @@ nHfcm[0] = n_Hbf_cap_met
 '''   
     
 for i in range(-1,len(a)-1):
-    k[i] = NORMAL_ALV_AREA/a[i]
-    vtbO[i] = calcToBlood(DIFF_COEFF_O2, -a[i], getGradient(PO2_BLOOD, PO2_ALV))
+    k[i] = a[i]/NORMAL_ALV_AREA
+    vtbO[i] = k[i]*n_O2_blood_lit*dens_O2/mw_O2
     ntbO[i]=volumetric_to_molar(vtbO[i])
-    vtbC[i]=calcToBlood(DIFF_COEFF_CO2, a[i], getGradient(PCO2_BLOOD, PCO2_ALV))
+    #vtbC[i]=calcToBlood(DIFF_COEFF_CO2, a[i], getGradient(PCO2_BLOOD, PCO2_ALV))
     ntbC[i]=volumetric_to_molar(vtbC[i])
     vOac[i] = vtbO[i]
-    nOac[i] = ntbO[i]
-    nOcm[i] = nOac[i]
-    nOc[i] = nOcm[i]
+
+    
     
     nOmc[i] = nOac[i] - nOc[i]
     nCac[i] = ntbC[i]
@@ -225,6 +232,9 @@ for i in range(-1,len(a)-1):
     ngi = V_b * c_gluc_in / mw_gluc
     nH2Oi = m_H2O_in * 24 * 60 / mw_H2O
     ngc[i]=nOc[i]/6
+    nOac[i] = ntbO[i]+nCg[i]
+    nOcm[i] = nOac[i]
+    nOc[i] = nOcm[i]
     nHOc[i] = nOc[i] / 4
     
 
@@ -236,31 +246,43 @@ for i in range(-1,len(a)-1):
     nH20mc[i] = nH2Oi+nH2Og[i]
     ngmc[i] = ngi-ngc[i]
     nHfmc[i] = nHfcm[i] + nHfg[i]
+    
+    nOca[i] = nOmc[i]+nOac[i]-nOcm[i]
 
- 
 figure=plt.figure(num=1, clear=True)  #plotting for healthy v arteriosclerosis
 axis=figure.add_subplot(1,1,1)
 axis.grid(True)    
-axis.plot(a, vtbO)
-axis.legend()        
+axis.plot(100*k, ntbO)
+axis.set_ylim(ntbO[0], ntbO[n]+.00000001)       
+axis.set(xlabel='Alveolar Surface Area (% of normal)', ylabel = 'O2 flow (mol/min)') 
+axis.xaxis.set_major_formatter(mtick.PercentFormatter())
+title1=plt.title('Oxygen Flow from Alveoli to Capillaries')
+figure.savefig('vtbo')  
+    
+'''
+figure=plt.figure(num=1, clear=True) 
+axis=figure.add_subplot(1,1,1)
+axis.grid(True)    
+axis.plot(k, vtbO)
+axis.set_ylim(vtbO[0], vtbO[n])       
 axis.set(xlabel='Area (cm^2)', ylabel = 'O2 flow (L/min)') 
 title1=plt.title('O2 flow from alveoli to capillaries')
 figure.savefig('vtbo')  
         
-figure2=plt.figure(num=2, clear=True) #plotting for arteriosclerosis v treated
+figure2=plt.figure(num=2, clear=True) 
 axis2=figure2.add_subplot(1,1,1) 
 axis2.grid(True)     
-axis2.plot(a, ntbO) 
+axis2.plot(k, ntbO) 
+axis2.set_ylim(ntbO[0], ntbO[n])
 title2=plt.title('Molar O2 flow from Alv to Cap')      
-axis2.legend()
 axis2.set(xlabel='Area (cm^2)', ylabel='O2 flow (mol/min)') 
 figure2.savefig('ntbo')  
 
 figure3=plt.figure(num=3, clear=True)  #plotting for healthy v arteriosclerosis
 axis3=figure3.add_subplot(1,1,1)
 axis3.grid(True)    
-axis3.plot(a, vtbC)
-axis3.legend()        
+axis3.plot(k, vtbC)
+axis3.set_ylim(vtbC[0], vtbC[n])        
 axis3.set(xlabel='Area (cm^2)', ylabel = 'CO2 flow (L/min)') 
 title3=plt.title('CO2 flow from Alv to Cap')
 figure3.savefig('vtbc')
@@ -268,8 +290,8 @@ figure3.savefig('vtbc')
 figure4=plt.figure(num=4, clear=True)  #plotting for healthy v arteriosclerosis
 axis4=figure4.add_subplot(1,1,1)
 axis4.grid(True)    
-axis4.plot(a, ntbC)
-axis4.legend()        
+axis4.plot(k, ntbC)
+axis4.set_ylim(ntbC[0], ntbC[n])     
 axis4.set(xlabel='Area (cm^2)', ylabel = 'CO2 flow (mol/min)') 
 title4=plt.title('CO2 flow from alveoli to capillaries')
 figure4.savefig('ntbc')
@@ -277,8 +299,8 @@ figure4.savefig('ntbc')
 figure5=plt.figure(num=5, clear=True)  #plotting for healthy v arteriosclerosis
 axis5=figure5.add_subplot(1,1,1)
 axis5.grid(True)    
-axis5.plot(a, k)
-axis5.legend()        
+axis5.plot(k, k)
+axis5.set_ylim(k[0], k[n])
 axis5.set(xlabel='Area (cm^2)', ylabel = 'Hemoglobin coefficient (dimensionless)') 
 title5=plt.title('Hemoglobin coefficient')
 figure5.savefig('k')
@@ -286,26 +308,27 @@ figure5.savefig('k')
 figure6=plt.figure(num=6, clear=True)  #plotting for healthy v arteriosclerosis
 axis6=figure6.add_subplot(1,1,1)
 axis6.grid(True)    
-axis6.plot(a, nOmc)
+axis6.plot(k, nOmc)
+axis6.set_ylim(nOmc[0], nOmc[n])
+axis6.autoscale(axis = 'y')
 title6=plt.title('Oxygen flow from Metabolic Reactor to Capillaries')
-axis6.legend()        
 axis6.set(xlabel='Area (cm^2)', ylabel='O2 (mol/min)') 
 figure6.savefig('nOmc')
 
 figure7=plt.figure(num=7, clear=True)  #plotting for healthy v arteriosclerosis
 axis7=figure7.add_subplot(1,1,1)
 axis7.grid(True)    
-axis7.plot(a, k)
-title7=plt.title('O2 flow from capillaries to metabolic reactor')
-axis7.legend()        
+axis7.plot(k, nOcm)
+axis7.set_ylim(nOcm[0],nOcm[n])
+title7=plt.title('O2 flow from capillaries to metabolic reactor')     
 axis7.set(xlabel='Area (cm^2)', ylabel='O2 flow (mol/min)') 
 figure7.savefig('nOcm')
 
 figure8=plt.figure(num=8, clear=True)  #plotting for healthy v arteriosclerosis
 axis8=figure8.add_subplot(1,1,1)
 axis8.grid(True)    
-axis8.plot(a, nOc)
-axis8.legend()        
+axis8.plot(k, nOc)
+axis8.set_ylim(nOc[0], nOc[n])      
 axis8.set(xlabel='Area (cm^2)', ylabel='Molar flow (mol/min)') 
 title8=plt.title('Oxygen consumed in metabolic reactor')
 figure8.savefig('nOc')
@@ -313,8 +336,8 @@ figure8.savefig('nOc')
 figure9=plt.figure(num=9, clear=True)  #plotting for healthy v arteriosclerosis
 axis9=figure9.add_subplot(1,1,1)
 axis9.grid(True)    
-axis9.plot(a, nCac)
-axis9.legend() 
+axis9.plot(k, nCac)
+axis9.set_ylim(nCac[0], nCac[n])
 title9=plt.title('CO2 diffusion from alveoli to capillaries')       
 axis9.set(xlabel='Area (cm^2)', ylabel='Molar flow rate (mol/min)') 
 figure9.savefig('nCac')
@@ -322,8 +345,8 @@ figure9.savefig('nCac')
 figure10=plt.figure(num=10, clear=True)  #plotting for healthy v arteriosclerosis
 axis10=figure10.add_subplot(1,1,1)
 axis10.grid(True)    
-axis10.plot(a, k)
-axis10.legend()        
+axis10.plot(k, nCca)
+axis10.set_ylim(nCca[0], nCca[n])
 axis10.set(xlabel='Area (cm^2)', ylabel='Molar flow rate (mol/min)') 
 title10=plt.title('CO2 diffusion from capillaries to alveoli')
 figure10.savefig('nCca')
@@ -331,26 +354,26 @@ figure10.savefig('nCca')
 figure11=plt.figure(num=11, clear=True)  #plotting for healthy v arteriosclerosis
 axis11=figure11.add_subplot(1,1,1)
 axis11.grid(True)    
-axis11.plot(a, nHE)
-axis11.legend()     
+axis11.plot(k, nHE)
+axis11.set_ylim(nHE[0], nHE[n])   
 axis11.set(xlabel='Area (cm^2)', ylabel = 'Molar flow rate (mol/min)') 
 title11=plt.title('Hemoglobin contribution from EPO facilitation')
 figure11.savefig('nHE')
-
+'''
 figure12=plt.figure(num=12, clear=True)  #plotting for healthy v arteriosclerosis
 axis12=figure12.add_subplot(1,1,1)
 axis12.grid(True)    
-axis12.plot(a, nHcm)
-axis12.legend()   
+axis12.plot(ntbO, nHcm)
+axis12.set_ylim(nHcm[0], nHcm[n])
 title12=plt.title('Hemoglobin flow from capillaries to metabolic reactor')     
-axis12.set(xlabel='Area (cm^2)', ylabel='Molar flow rate (mol/min)') 
+axis12.set(xlabel='O2 flow (mol/min)', ylabel='Molar flow rate (mol/min)') 
 figure12.savefig('nHcm')
-
+'''
 figure13=plt.figure(num=13, clear=True)  #plotting for healthy v arteriosclerosis
 axis13=figure13.add_subplot(1,1,1)
 axis13.grid(True)    
-axis13.plot(a, nHOcm)
-axis13.legend()   
+axis13.plot(k, nHOcm)
+axis13.set_ylim(nHOcm[0], nHOcm[n])   
 title13=plt.title('Oxyhemoglobin flow from capillaries to metabolic reactor')     
 axis13.set(xlabel='Area (cm^2)', ylabel='Molar flow rate (mol/min)') 
 figure13.savefig('nHOcm')
@@ -358,8 +381,8 @@ figure13.savefig('nHOcm')
 figure14=plt.figure(num=14, clear=True)  #plotting for healthy v arteriosclerosis
 axis14=figure14.add_subplot(1,1,1)
 axis14.grid(True)    
-axis14.plot(a, nHfcm)
-axis14.legend()   
+axis14.plot(k, nHfcm)
+axis14.set_ylim(nHfcm[0], nHfcm[n]) 
 title14=plt.title('Free Hemoglobin flow from capillaries to metabolic reactor')     
 axis14.set(xlabel='Area (cm^2)', ylabel='Molar flow rate (mol/min)') 
 figure14.savefig('nHfcm')
@@ -367,8 +390,8 @@ figure14.savefig('nHfcm')
 figure15=plt.figure(num=15, clear=True)  #plotting for healthy v arteriosclerosis
 axis15=figure15.add_subplot(1,1,1)
 axis15.grid(True)    
-axis15.plot(a, nHw)
-axis15.legend()   
+axis15.plot(k, nHw)
+axis15.set_ylim(nHw[0], nHw[n])
 title15=plt.title('Total hemoglobin flow to waste')     
 axis15.set(xlabel='Area (cm^2)', ylabel='Molar flow rate (mol/min)') 
 figure12.savefig('nHw')
@@ -376,7 +399,9 @@ figure12.savefig('nHw')
 figure16=plt.figure(num=16, clear=True)  #plotting for healthy v arteriosclerosis
 axis16=figure16.add_subplot(1,1,1)
 axis16.grid(True)    
-axis16.plot(a, ngc)
+axis16.plot(k, ngc)
+axis16.set_ylim(ngc[0], ngc[n])
+axis16.autoscale(axis = 'y')
 axis16.legend()   
 title16=plt.title('Total glucose flow from storage and food consumption')     
 axis16.set(xlabel='Area (cm^2)', ylabel='Molar flow rate (mol/min)') 
@@ -386,7 +411,8 @@ figure17=plt.figure(num=17, clear=True)  #plotting for healthy v arteriosclerosi
 axis17=figure17.add_subplot(1,1,1)
 axis17.grid(True)    
 axis17.plot(a, nHOc)
-axis17.legend()   
+axis17.set_ylim(nHOc[0], nHOc[n])
+
 title17=plt.title('Oxyhemoglobin consumed for glycolysis')     
 axis17.set(xlabel='Area (cm^2)', ylabel='Molar flow rate (mol/min)') 
 figure17.savefig('nHOc')
@@ -394,8 +420,8 @@ figure17.savefig('nHOc')
 figure18=plt.figure(num=18, clear=True)  #plotting for healthy v arteriosclerosis
 axis18=figure18.add_subplot(1,1,1)
 axis18.grid(True)    
-axis18.plot(a, nCg)
-axis18.legend()   
+axis18.plot(k, nCg)
+axis18.set_ylim(nCg[0], nCg[n])  
 title18=plt.title('CO2 generated from glycolysis')     
 axis18.set(xlabel='Area (cm^2)', ylabel='Molar flow rate (mol/min)') 
 figure18.savefig('nCg')
@@ -403,8 +429,8 @@ figure18.savefig('nCg')
 figure19=plt.figure(num=19, clear=True)  #plotting for healthy v arteriosclerosis
 axis19=figure19.add_subplot(1,1,1)
 axis19.grid(True)    
-axis19.plot(a, nHfg)
-axis19.legend()   
+axis19.plot(k, nHfg)
+axis19.set_ylim(nHfg[0], nHfg[n])  
 title19=plt.title('Free hemoglobin generated from glycolysis')     
 axis19.set(xlabel='Area (cm^2)', ylabel='Molar flow rate (mol/min)') 
 figure19.savefig('nHfg')
@@ -412,8 +438,9 @@ figure19.savefig('nHfg')
 figure20=plt.figure(num=20, clear=True)  #plotting for healthy v arteriosclerosis
 axis20=figure20.add_subplot(1,1,1)
 axis20.grid(True)    
-axis20.plot(a, nH2Og)
-axis20.legend()   
+axis20.plot(k, nH2Og)
+axis20.set_ylim(nH2Og[0], nH2Og[n])
+axis20.autoscale(axis = 'y') 
 title20=plt.title('H2O) generated from glycolysis')     
 axis20.set(xlabel='Area (cm^2)', ylabel='Molar flow rate (mol/min)') 
 figure20.savefig('nH2Og')
@@ -421,8 +448,8 @@ figure20.savefig('nH2Og')
 figure21=plt.figure(num=21, clear=True)  #plotting for healthy v arteriosclerosis
 axis21=figure21.add_subplot(1,1,1)
 axis21.grid(True)    
-axis21.plot(a, ngmc)
-axis21.legend()   
+axis21.plot(k, ngmc)
+axis21.set_ylim(ngmc[0], ngmc[n])
 title21=plt.title('Glucose flow from metabolic reactor to capillaries')     
 axis21.set(xlabel='Area (cm^2)', ylabel='Molar flow rate (mol/min)') 
 figure21.savefig('ngmc')
@@ -430,8 +457,8 @@ figure21.savefig('ngmc')
 figure22=plt.figure(num=22, clear=True)  #plotting for healthy v arteriosclerosis
 axis22=figure22.add_subplot(1,1,1)
 axis22.grid(True)    
-axis22.plot(a, nHfmc)
-axis22.legend()   
+axis22.plot(k, nHfmc)
+axis22.set_ylim(nHfmc[0], nHfmc[n])
 title22=plt.title('Free hemoglobin travelling from metabolic reactor to capillaries')     
 axis22.set(xlabel='Area (cm^2)', ylabel='Molar flow rate (mol/min)') 
 figure22.savefig('nHfmc')
@@ -439,8 +466,8 @@ figure22.savefig('nHfmc')
 figure23=plt.figure(num=23, clear=True)  #plotting for healthy v arteriosclerosis
 axis23=figure23.add_subplot(1,1,1)
 axis23.grid(True)    
-axis23.plot(a, nCg)
-axis23.legend()   
+axis23.plot(k, nCg)
+axis23.set_ylim(nCg[0], nCg[n]) 
 title23=plt.title('CO2 generated from glycolysis')     
 axis23.set(xlabel='Area (cm^2)', ylabel='Molar flow rate (mol/min)') 
 figure23.savefig('nCg')
@@ -461,3 +488,4 @@ figure23.savefig('nCg')
 
 #print("Splitter to Alveoli: %f \nSat Alveolar O2: %f \nSat Alveolar CO2: %f \nSat Alveolar H2O: %f \n" % (n_sat_alveoli, n_sat_alveoli*SAT_PCT_O2, n_sat_alveoli*SAT_PCT_CO2, n_sat_alveoli*SAT_PCT_H2O))
 #print("Alveoli to Mixer: %f \nAlveolar O2: %f \nAlveolar CO2: %f \nAlveolar H2O: %f \n" % (n_alv, n_alv*ALV_PCT_O2, n_alv*ALV_PCT_CO2, n_alv*ALV_PCT_H2O))
+'''
