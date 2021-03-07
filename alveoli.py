@@ -35,7 +35,7 @@ PO2_BLOOD = 104 #mm hg
 PO2_ALV = 40 #mm hg
 PO2_GRADIENT = getGradient(PO2_BLOOD, PO2_ALV)
 DIFF_COEFF_O2 = 2.4*(10^-5) #cm^2/s
-n_O2_blood_lit = .023      #L/min
+v_O2_blood_lit = .023      #L/min
 dens_O2 = 1.429 #g/L
 mw_O2 = 16   #g/mol
 
@@ -60,7 +60,7 @@ def getArea():
 
 #ALVEOLI
 #v_toBlood_O2 = calcToBlood(DIFF_COEFF_O2, ALV_AREA, PO2_GRADIENT)
-v_toBlood_O2 = n_O2_blood_lit*dens_O2/mw_O2
+v_toBlood_O2 = v_O2_blood_lit*dens_O2/mw_O2
 n_toBlood_O2 = volumetric_to_molar(v_toBlood_O2)
 v_toBlood_CO2 = calcToBlood(DIFF_COEFF_CO2, ALV_AREA, PCO2_GRADIENT)
 n_toBlood_CO2 = volumetric_to_molar(v_toBlood_CO2)
@@ -167,7 +167,8 @@ nCac = np.zeros(l)
 nCmc = np.zeros(l)
 nCca = np.zeros(l)
 nOca = np.zeros(l)
-dO2 = np.arange(.25, .75, .5*da/(a0-aEnd))
+dO2 = np.arange(.75, .25, .5*da/(aEnd-a0))
+dO2_min = np.zeros(l)
 '''
 vOac[0] = v_O2_alv_cap
 nOac[0] = n_O2_alv_cap
@@ -194,8 +195,11 @@ nH2Og = np.zeros(l)
 nH20mc = np.zeros(l)
 ngmc = np.zeros(l)
 nHfmc = np.zeros(l)
-O2_healthy = n_O2_blood_lit*dens_O2/mw_O2
+O2_healthy = v_O2_blood_lit*dens_O2/mw_O2
 O2_diff = np.zeros(l)
+Hb_prod = np.zeros(l)
+Hb_tot = np.zeros(l)
+
 '''
 nHE[0] = n_Hb_EPO
 nHcm[0] = n_Hb_cap_met
@@ -205,15 +209,16 @@ nHfcm[0] = n_Hbf_cap_met
     
 for i in range(-1,len(a)-1):
     k[i] = a[i]/NORMAL_ALV_AREA
-    vtbO[i] = k[i]*n_O2_blood_lit*dens_O2/mw_O2
-    ntbO[i]=volumetric_to_molar(vtbO[i])
+    vtbO[i] = k[i]*v_O2_blood_lit
+    ntbO[i]=k[i]*O2_healthy
     #vtbC[i]=calcToBlood(DIFF_COEFF_CO2, a[i], getGradient(PCO2_BLOOD, PCO2_ALV))
     ntbC[i]=volumetric_to_molar(vtbC[i])
     vOac[i] = vtbO[i]
-    O2_diff[i]=O2_healthy-vtbO[i]
+    O2_diff[i]=O2_healthy-ntbO[i]
+    Hb_prod[i] = 0.59 * O2_diff[i]/4
 
     
-    
+    dO2_min[i] = 0.25 * O2_healthy
     nOmc[i] = nOac[i] - nOc[i]
     nCac[i] = ntbC[i]
     nCmc[i] = nOcm[i]
@@ -223,6 +228,7 @@ for i in range(-1,len(a)-1):
     nHcm[i] = Dens_Hb*CO/MW_Hb+nHE[i]
 
     nHOcm[i] = nOac[i]/4
+    Hb_tot[i] = normal_n_Hb_EPO + Hb_prod[i]
     nHfcm[i] = nHcm[i]-nHOcm[i]+nHE[i]
     nC = .0225*V_b   #based on volumetric flow rate and conc
     nHmc[i]=nHfcm[i]+nHOcm[i]
@@ -241,6 +247,7 @@ for i in range(-1,len(a)-1):
     nCg[i] = nOc[i]
     nH2Og[i] = nOc[i]
     nHfg[i] = nHOc[i]
+    ntbO[i] = k[i]*O2_healthy
     nH20mc[i] = nH2Oi+nH2Og[i]
     ngmc[i] = ngi-ngc[i]
     nHfmc[i] = nHfcm[i] + nHfg[i]
@@ -357,6 +364,38 @@ axis12.set_ylim(nHcm[0], nHcm[n])
 title12=plt.title('Hemoglobin flow from capillaries to metabolic reactor')     
 axis12.set(xlabel='O2 flow (mol/min)', ylabel='Molar flow rate (mol/min)') 
 figure12.savefig('nHcm')
+
+figure13=plt.figure(num=13, clear=True)  #plotting for healthy v arteriosclerosis
+axis13=figure13.add_subplot(1,1,1)
+axis13.grid(True)    
+axis13.plot(100*ntbO/O2_healthy, 100*Hb_prod)
+axis13.set_ylim(100*Hb_prod[n], 100*Hb_prod[0])
+axis13.xaxis.set_major_formatter(mtick.PercentFormatter())
+title13=plt.title('Additional hemoglobin produced')     
+axis13.set(xlabel='O2 flow (mol/min)', ylabel='Produced hemoglobin (mol/min)') 
+figure13.savefig('Hb_prod')
+
+figure14=plt.figure(num=14, clear=True)  #plotting for healthy v arteriosclerosis
+axis14=figure14.add_subplot(1,1,1)
+axis14.grid(True)    
+axis14.plot(ntbO/(ntbO[1]), Hb_prod*4)
+axis14.set_ylim(0, Hb_prod[n]*4)
+axis14.xaxis.set_major_formatter(mtick.PercentFormatter())
+title14=plt.title('Oxygen flow to metabolic reactor')     
+axis14.set(xlabel='Oxygen flow without EPO system', ylabel='Oxygen flow with EPO production') 
+figure14.savefig('THANKS EPO!')
+
+figure15=plt.figure(num=15, figsize = (10, 7), clear=True)  #plotting for healthy v arteriosclerosis
+axis15=figure15.add_subplot(1,1,1)
+axis15.grid(True)    
+axis15.plot(100*k, dO2*O2_healthy*k*1000, label = "Oxygen deliverance boosted by hemoglobin (mmol/min)")
+axis15.plot(100*k, dO2_min*k*1000, label = "Oxygen deliverance at minimum (mmol/min)")
+figure15.legend(loc= "upper left")
+axis15.set_ylim(0, 1000*O2_healthy/2)
+axis15.xaxis.set_major_formatter(mtick.PercentFormatter())
+title15=plt.title('Oxygen flow to metabolic reactor')     
+axis15.set(xlabel='Percent original surface area', ylabel='Oxygen flow to metabolic reactor (mmol/min)') 
+figure15.savefig('going to sleep RN!!')
 '''
 figure13=plt.figure(num=13, clear=True)  #plotting for healthy v arteriosclerosis
 axis13=figure13.add_subplot(1,1,1)
