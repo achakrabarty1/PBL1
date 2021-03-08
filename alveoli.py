@@ -2,7 +2,7 @@
 """
 Created on Wed Mar  3 01:30:54 2021
 @author: stper
-"""
+""" 
 
 #import Humidifier as hum
 #import splitter as sp
@@ -34,10 +34,12 @@ ALV_AREA = 3.0 * (10^7)  #cm^2          MODIFY THIS ONE FOR DATA!
 PO2_BLOOD = 104 #mm hg
 PO2_ALV = 40 #mm hg
 PO2_GRADIENT = getGradient(PO2_BLOOD, PO2_ALV)
-DIFF_COEFF_O2 = 2.4*(10^-5) #cm^2/s
+print(PO2_GRADIENT)
+DIFF_COEFF_O2 = 2.4*(10^(-5)) #cm^2/s
 v_O2_blood_lit = .023      #L/min
 dens_O2 = 1.429 #g/L
-mw_O2 = 16   #g/mol
+mw_O2 = 32   #g/mol
+c_CO2_blood_lit = .025   #mol/L
 
 PCO2_BLOOD = 40
 PCO2_ALV = 45
@@ -47,7 +49,7 @@ DIFF_COEFF_CO2 = 1.55*(10^-5) #cm^2/s
 mw_gluc = 180.16 #g/mol
 c_gluc_in = 0.9 #g/L
 V_b = 5.0 #L/min
-m_H2O_in = 2100 #mL/day
+v_H2O_in = 2.1 #L/day
 mw_H2O = 18.015 #g/mol
 
 def calcToBlood(coeff,area, gradient):
@@ -68,8 +70,8 @@ n_toBlood_CO2 = volumetric_to_molar(v_toBlood_CO2)
 #n_alv = n_sat_alveoli
 
 #CAPILLARIES
-ki = NORMAL_ALV_AREA/ALV_AREA   #add another constant here? Not sure how this would scale
-                                        #as i'm not sure how much SA is lost with emphysema
+ki = NORMAL_ALV_AREA/ALV_AREA   
+                                        
 
 MW_Hb = 64500    #g HB/mol
 CO = 5   #5 L blood/min
@@ -97,7 +99,7 @@ n_CO2_cap_alv = n_CO2_alv_cap + n_CO2_met_cap
 n_Hb_met_cap = n_Hb_cap_met
 n_Hb_waste = n_Hb_cap_met + n_Hb_EPO - n_Hb_met_cap
 n_gluc_ingest = V_b * c_gluc_in / mw_gluc #mol/min
-n_H2O_ingest = m_H2O_in * 24 * 60 / mw_H2O
+n_H2O_ingest = v_H2O_in*.997
 
 #determine limiting reagent
 LR = min(n_O2_cap_met/6, n_gluc_ingest)
@@ -167,7 +169,7 @@ nCac = np.zeros(l)
 nCmc = np.zeros(l)
 nCca = np.zeros(l)
 nOca = np.zeros(l)
-dO2 = np.arange(.75, .25, .5*da/(aEnd-a0))
+dO2 = np.arange(.5, .25, .25*da/(aEnd-a0))
 dO2_min = np.zeros(l)
 '''
 vOac[0] = v_O2_alv_cap
@@ -199,6 +201,7 @@ O2_healthy = v_O2_blood_lit*dens_O2/mw_O2
 O2_diff = np.zeros(l)
 Hb_prod = np.zeros(l)
 Hb_tot = np.zeros(l)
+ntbOF = np.zeros(l)
 
 '''
 nHE[0] = n_Hb_EPO
@@ -211,7 +214,8 @@ for i in range(-1,len(a)-1):
     k[i] = a[i]/NORMAL_ALV_AREA
     vtbO[i] = k[i]*v_O2_blood_lit
     ntbO[i]=k[i]*O2_healthy
-    #vtbC[i]=calcToBlood(DIFF_COEFF_CO2, a[i], getGradient(PCO2_BLOOD, PCO2_ALV))
+    ntbOF[i] = DIFF_COEFF_O2*a[i]*PO2_GRADIENT
+    vtbC[i]=calcToBlood(DIFF_COEFF_CO2, a[i], getGradient(PCO2_BLOOD, PCO2_ALV))
     ntbC[i]=volumetric_to_molar(vtbC[i])
     vOac[i] = vtbO[i]
     O2_diff[i]=O2_healthy-ntbO[i]
@@ -219,13 +223,15 @@ for i in range(-1,len(a)-1):
 
     
     dO2_min[i] = 0.25 * O2_healthy
-    nOmc[i] = nOac[i] - nOc[i]
+    nOcm[i] = ntbO[i]*dO2[i]
+    nOc[i] = nOcm[i]
+    nOmc[i] = nOcm[i] - nOc[i]
     nCac[i] = ntbC[i]
     nCmc[i] = nOcm[i]
     nCca[i] = ntbC[i] + nCmc[i]
     
     nHE[i] = (k[i]-1)*normal_n_Hb_EPO
-    nHcm[i] = Dens_Hb*CO/MW_Hb+nHE[i]
+    nHcm[i] = Dens_Hb*CO/MW_Hb+Hb_prod[i]
 
     nHOcm[i] = nOac[i]/4
     Hb_tot[i] = normal_n_Hb_EPO + Hb_prod[i]
@@ -234,11 +240,11 @@ for i in range(-1,len(a)-1):
     nHmc[i]=nHfcm[i]+nHOcm[i]
     nHw[i] = nHmc[i] + nHE[i] - nHcm[i]
     ngi = V_b * c_gluc_in / mw_gluc
-    nH2Oi = m_H2O_in * 24 * 60 / mw_H2O
+    nH2Oi = v_H2O_in*.997/ (mw_H2O*24*60)
     ngc[i]=nOc[i]/6
-    nOac[i] = ntbO[i]+nCg[i]
-    nOcm[i] = nOac[i]
-    nOc[i] = nOcm[i]
+   # nOac[i] = ntbO[i]+nCg[i]
+    
+    
     nHOc[i] = nOc[i] / 4
     
 
@@ -258,7 +264,7 @@ figure=plt.figure(num=1, clear=True)  #plotting for healthy v arteriosclerosis
 axis=figure.add_subplot(1,1,1)
 axis.grid(True)    
 axis.plot(100*k, ntbO)
-axis.set_ylim(ntbO[0], ntbO[n]+.00000001)       
+#axis.set_ylim(ntbOF[0], ntbOF[n]+.00000001)       
 axis.set(xlabel='Alveolar Surface Area (% of normal)', ylabel = 'O2 flow (mol/min)') 
 axis.xaxis.set_major_formatter(mtick.PercentFormatter())
 title1=plt.title('Oxygen Flow from Alveoli to Capillaries')
@@ -374,7 +380,7 @@ axis13.xaxis.set_major_formatter(mtick.PercentFormatter())
 title13=plt.title('Additional hemoglobin produced')     
 axis13.set(xlabel='O2 flow (mol/min)', ylabel='Produced hemoglobin (mol/min)') 
 figure13.savefig('Hb_prod')
-
+'''
 figure14=plt.figure(num=14, clear=True)  #plotting for healthy v arteriosclerosis
 axis14=figure14.add_subplot(1,1,1)
 axis14.grid(True)    
@@ -384,11 +390,11 @@ axis14.xaxis.set_major_formatter(mtick.PercentFormatter())
 title14=plt.title('Oxygen flow to metabolic reactor')     
 axis14.set(xlabel='Oxygen flow without EPO system', ylabel='Oxygen flow with EPO production') 
 figure14.savefig('THANKS EPO!')
-
+'''
 figure15=plt.figure(num=15, figsize = (10, 7), clear=True)  #plotting for healthy v arteriosclerosis
 axis15=figure15.add_subplot(1,1,1)
 axis15.grid(True)    
-axis15.plot(100*k, dO2*O2_healthy*k*1000, label = "Oxygen deliverance boosted by hemoglobin (mmol/min)")
+axis15.plot(100*k, dO2*ntbO*1000, label = "Oxygen deliverance boosted by hemoglobin (mmol/min)")
 axis15.plot(100*k, dO2_min*k*1000, label = "Oxygen deliverance at minimum (mmol/min)")
 figure15.legend(loc= "upper left")
 axis15.set_ylim(0, 1000*O2_healthy/2)
@@ -500,5 +506,40 @@ figure23.savefig('nCg')
 #print("Splitter to Alveoli: %f \nSat Alveolar O2: %f \nSat Alveolar CO2: %f \nSat Alveolar H2O: %f \n" % (n_sat_alveoli, n_sat_alveoli*SAT_PCT_O2, n_sat_alveoli*SAT_PCT_CO2, n_sat_alveoli*SAT_PCT_H2O))
 #print("Alveoli to Mixer: %f \nAlveolar O2: %f \nAlveolar CO2: %f \nAlveolar H2O: %f \n" % (n_alv, n_alv*ALV_PCT_O2, n_alv*ALV_PCT_CO2, n_alv*ALV_PCT_H2O))
 '''
+
+print(ntbO[0])
+print(ntbO[int(l/2)])
+print(ntbO[n])
+
+print(nOcm[0])
+print(nOcm[int(l/2)])
+print(nOcm[n])
+
+print(nOcm[0])
+print(nOcm[int(l/2)])
+print(nOcm[n])
+
+print(Hb_prod[0])
+print(Hb_prod[int(l/2)])
+print(Hb_prod[n])
+
+print(nHcm[0])
+print(nHcm[int(l/2)])
+print(nHcm[n])
+
+print(ngc[0])
+print(ngc[int(l/2)])
+print(ngc[n])
+print(ngi)
+
+print(nH2Oi)
+print(nH2Og[0])
+print(nH2Og[int(l/2)])
+print(nH2Og[n])
+
+
+
+
+
 
 
